@@ -46,6 +46,18 @@ CLIENTS = {
 STYLE_SHEET = open(os.path.join(Path(__file__).parent, "style.qss"), "r", encoding="utf-8").read()
 
 
+def guess_shared_cache_location():
+    """Heuristically guess the default EVE Online SharedCache path."""
+    candidates = [
+        os.path.join(os.getenv("LOCALAPPDATA", ""), "CCP", "EVE", "SharedCache"),
+        os.path.join(os.getenv("PROGRAMDATA", ""), "CCP", "EVE", "SharedCache"),
+    ]
+    for path in candidates:
+        if path and os.path.isdir(path):
+            return path
+    return ""
+
+
 class EVEDirectory(QTreeWidgetItem):
     def __init__(self, parent, text="", icon=None):
         super().__init__(parent)
@@ -196,10 +208,18 @@ class ResTree(QTreeWidget):
         try:
             self.config = json.loads(open(CONFIG_FILE, "r", encoding="utf-8").read())
         except (OSError, json.JSONDecodeError):
+            guessed = guess_shared_cache_location()
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-                f.write(json.dumps({"SharedCacheLocation": ""}, indent=4))
+                f.write(json.dumps({"SharedCacheLocation": guessed}, indent=4))
 
-            self.config = json.loads(open(CONFIG_FILE, "r", encoding="utf-8").read())
+            self.config = {"SharedCacheLocation": guessed}
+        else:
+            if not self.config.get("SharedCacheLocation"):
+                guessed = guess_shared_cache_location()
+                if guessed:
+                    self.config["SharedCacheLocation"] = guessed
+                    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                        json.dump(self.config, f, indent=4)
 
         self.show()
 
@@ -673,7 +693,12 @@ class CynoExporterWindow(QMainWindow):
         main_layout.addWidget(self.tab_widget)
 
     def set_shared_cache(self):
-        folder = QFileDialog.getExistingDirectory(None, "Path to EVE's SharedCache folder")
+        default_dir = self.shared_cache_tq.config.get(
+            "SharedCacheLocation", guess_shared_cache_location()
+        )
+        folder = QFileDialog.getExistingDirectory(
+            None, "Path to EVE's SharedCache folder", default_dir
+        )
         if not folder:
             return
         with open("./config.json", "w", encoding="utf-8") as f:
