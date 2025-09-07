@@ -102,10 +102,10 @@ class ResFileIndex:
                     return self._get_build(client)
                 else:
                     return None
-        except requests.exceptions.MissingSchema:
-            self.event_logger.add(f"Connection failed.")
-        except Exception:
-            self.event_logger.add(f"Connection failed to: {response.url}")
+        except requests.exceptions.RequestException as e:
+            self.event_logger.add(f"Connection failed to: {base_url}/{client} ({e})")
+        except ValueError as e:
+            self.event_logger.add(f"Invalid JSON received from: {base_url}/{client} ({e})")
 
     @staticmethod
     def resindexfile_object(content):
@@ -195,7 +195,7 @@ class ResTree(QTreeWidget):
         self.icon_atlas = QPixmap("./icons/icons.png")
         try:
             self.config = json.loads(open(CONFIG_FILE, "r", encoding="utf-8").read())
-        except:
+        except (OSError, json.JSONDecodeError):
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 f.write(json.dumps({"SharedCacheLocation": ""}, indent=4))
 
@@ -209,7 +209,7 @@ class ResTree(QTreeWidget):
             self.setHeaderLabel(
                 "res: ► " + self._get_path_segments(self.selectedItems()[0]).replace("\\", " ► ")
             )
-        except:
+        except (IndexError, AttributeError):
             pass
 
     def _get_path_segments(self, item):
@@ -221,7 +221,7 @@ class ResTree(QTreeWidget):
                 )
                 item = item.parent()
             return os.path.join(*path_segments)
-        except:
+        except AttributeError:
             return ""
 
     def _get_directory_size(self, directory):
@@ -259,8 +259,8 @@ class ResTree(QTreeWidget):
             elif response.status_code == 404:
                 self.event_logger.add(f"404 error: {url}")
                 return
-        except:
-            self.event_logger.add(f"Request failed: {url}")
+        except (requests.exceptions.RequestException, OSError) as e:
+            self.event_logger.add(f"Request failed: {url} ({e})")
 
     def download_file(self, item, dest_path, retries=0):
         resindex = ResFileIndex(chinese_client=self.chinese_client, event_logger=self.event_logger)
@@ -278,8 +278,8 @@ class ResTree(QTreeWidget):
                 self.event_logger.add(f"404 error: {item.filename}")
                 return
             return item.filename
-        except:
-            self.event_logger.add(f"Request failed: {url}")
+        except (requests.exceptions.RequestException, OSError) as e:
+            self.event_logger.add(f"Request failed: {url} ({e})")
 
     def _save_as_obj_command(self, item):
         out_file = self._save_file_command(item)
