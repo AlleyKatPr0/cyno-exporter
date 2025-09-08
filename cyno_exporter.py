@@ -43,7 +43,10 @@ CLIENTS = {
     "infinity": {"name": "Infinity", "id": "INFINITY"},
     "sharedCache": {"name": "Local", "id": None},
 }
-STYLE_SHEET = open(os.path.join(Path(__file__).parent, "style.qss"), "r", encoding="utf-8").read()
+# Load the style sheet once and store its contents.
+style_sheet_path = os.path.join(Path(__file__).parent, "style.qss")
+with open(style_sheet_path, "r", encoding="utf-8") as f:
+    STYLE_SHEET = f.read()
 
 
 def guess_shared_cache_location():
@@ -206,7 +209,9 @@ class ResTree(QTreeWidget):
 
         self.icon_atlas = QPixmap("./icons/icons.png")
         try:
-            self.config = json.loads(open(CONFIG_FILE, "r", encoding="utf-8").read())
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                config_content = f.read()
+            self.config = json.loads(config_content)
         except (OSError, json.JSONDecodeError):
             guessed = guess_shared_cache_location()
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -418,7 +423,9 @@ class ResTree(QTreeWidget):
         os.makedirs("resindex", exist_ok=True)
 
         if self.client is None:
-            self.config = json.loads(open(CONFIG_FILE, "r").read())
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                config_content = f.read()
+            self.config = json.loads(config_content)
             try:
                 shared_cache_path = os.path.join(
                     self.config["SharedCacheLocation"], "tq", "resfileindex.txt"
