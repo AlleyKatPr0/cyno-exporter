@@ -7,13 +7,21 @@ class Plugins:
         self.exe = os.path.join(self.cwd, *plugin)
 
     def run(self, *args):
-        stdout = subprocess.run(
-            [self.exe, *args],
-            creationflags=subprocess.CREATE_NO_WINDOW,
-            check=False,
-            capture_output=True,
-            text=True,
-        ).stdout
+        # Determine subprocess arguments based on the operating system.
+        # ``creationflags=subprocess.CREATE_NO_WINDOW`` is only available on
+        # Windows. On other platforms, attempting to use it raises an
+        # ``AttributeError``. Detect ``os.name`` and only supply the flag on
+        # Windows to ensure cross-platform compatibility.
+        kwargs = {
+            "check": False,
+            "capture_output": True,
+            "text": True,
+        }
+
+        if os.name == "nt":
+            kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+        stdout = subprocess.run([self.exe, *args], **kwargs).stdout
         return stdout
 
 
