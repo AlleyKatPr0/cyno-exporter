@@ -109,15 +109,22 @@ class ResFileIndex:
             response = requests.get(f"{base_url}/{client}", timeout=timeout)
             if response.status_code == 200:
                 client = response.json()
-                self.event_logger.add(f"Requesting client: {response.url}")
+                if self.event_logger:
+                    self.event_logger.add(f"Requesting client: {response.url}")
                 if not self._is_protected(client):
                     return self._get_build(client)
                 else:
                     return None
         except requests.exceptions.RequestException as e:
-            self.event_logger.add(f"Connection failed to: {base_url}/{client} ({e})")
+            if self.event_logger:
+                self.event_logger.add(
+                    f"Connection failed to: {base_url}/{client} ({e})"
+                )
         except ValueError as e:
-            self.event_logger.add(f"Invalid JSON received from: {base_url}/{client} ({e})")
+            if self.event_logger:
+                self.event_logger.add(
+                    f"Invalid JSON received from: {base_url}/{client} ({e})"
+                )
 
     @staticmethod
     def resindexfile_object(content):
@@ -144,7 +151,10 @@ class ResFileIndex:
     def fetch_resindexfile(self, build):
         base_url = self.chinese_url if self.chinese_client else self.binaries_url
         response = requests.get(f"{base_url}/eveonline_{build}.txt")
-        self.event_logger.add(f"Requesting resindex: {base_url}/eveonline_{build}.txt")
+        if self.event_logger:
+            self.event_logger.add(
+                f"Requesting resindex: {base_url}/eveonline_{build}.txt"
+            )
         if response.status_code == 200:
             resfileindex = next(
                 (
@@ -277,10 +287,12 @@ class ResTree(QTreeWidget):
                 with open(dest_path, "wb") as f:
                     f.write(response.content)
             elif response.status_code == 404:
-                self.event_logger.add(f"404 error: {url}")
+                if self.event_logger:
+                    self.event_logger.add(f"404 error: {url}")
                 return
         except (requests.exceptions.RequestException, OSError) as e:
-            self.event_logger.add(f"Request failed: {url} ({e})")
+            if self.event_logger:
+                self.event_logger.add(f"Request failed: {url} ({e})")
 
     def download_file(self, item, dest_path, retries=0):
         resindex = ResFileIndex(chinese_client=self.chinese_client, event_logger=self.event_logger)
@@ -291,22 +303,28 @@ class ResTree(QTreeWidget):
                 with open(dest_path, "wb") as f:
                     f.write(response.content)
                 if os.path.getsize(dest_path) != item.size:
-                    self.event_logger.add(f"resfile size doesn't match: {dest_path}, re-trying...")
+                    if self.event_logger:
+                        self.event_logger.add(
+                            f"resfile size doesn't match: {dest_path}, re-trying..."
+                        )
                     if retries < 3:
                         self.download_file(item, dest_path, retries + 1)
             elif response.status_code == 404:
-                self.event_logger.add(f"404 error: {item.filename}")
+                if self.event_logger:
+                    self.event_logger.add(f"404 error: {item.filename}")
                 return
             return item.filename
         except (requests.exceptions.RequestException, OSError) as e:
-            self.event_logger.add(f"Request failed: {url} ({e})")
+            if self.event_logger:
+                self.event_logger.add(f"Request failed: {url} ({e})")
 
     def _save_as_obj_command(self, item):
         out_file = self._save_file_command(item)
         if not out_file:
             return
         Wavefront().to_obj(out_file)
-        self.event_logger.add(f"Obj exported: {out_file}")
+        if self.event_logger:
+            self.event_logger.add(f"Obj exported: {out_file}")
 
     def _save_as_png_command(self, out_file_path):
         NvttExport().run(out_file_path)
@@ -317,7 +335,10 @@ class ResTree(QTreeWidget):
         temp = os.path.join(os.path.dirname(out_file_path), f"{out_file_path.split('.')[0]}.temp")
 
         if stdout is not None:
-            self.event_logger.add(f"Could not convert: {out_file_path}\n\n{str(stdout)}")
+            if self.event_logger:
+                self.event_logger.add(
+                    f"Could not convert: {out_file_path}\n\n{str(stdout)}"
+                )
             return
 
         os.remove(out_file_path)
@@ -356,7 +377,8 @@ class ResTree(QTreeWidget):
         elif out_file_path.lower().endswith(".wem"):
             self._save_as_ogg_command(out_file_path)
         if not multiple:
-            self.event_logger.add(f"Exported resfile to: {out_file_path}")
+            if self.event_logger:
+                self.event_logger.add(f"Exported resfile to: {out_file_path}")
         return out_file_path if not multiple else item.filename
 
     def _save_folder_command(self, item):
@@ -383,7 +405,8 @@ class ResTree(QTreeWidget):
                 loading.setValue(loading.value() + 1)
                 QApplication.processEvents()
 
-        self.event_logger.add(f"Exported {len(files)} resfiles to {dest_folder}")
+        if self.event_logger:
+            self.event_logger.add(f"Exported {len(files)} resfiles to {dest_folder}")
         loading.close()
 
     def _start_loading(self, root, resfileindex_path, bnk_path):
@@ -398,9 +421,13 @@ class ResTree(QTreeWidget):
 
         start_time = time.time()
 
-        self.event_logger.add("Loading resfiles...")
+        if self.event_logger:
+            self.event_logger.add("Loading resfiles...")
         self._load_file_tree(root=root, resfiles=resfileindex, bankfileinfo=bnk)
-        self.event_logger.add(f"Took {time.time() - start_time:.2f}s to load resfiles")
+        if self.event_logger:
+            self.event_logger.add(
+                f"Took {time.time() - start_time:.2f}s to load resfiles"
+            )
 
     def load_resfiles(self, parent, client=None):
         self.shared_cache.setEnabled(False)
@@ -446,7 +473,10 @@ class ResTree(QTreeWidget):
                 root.setHidden(True)
                 self.protected_label.setGeometry(25, 25, 300, 50)
                 self.protected_label.show()
-                self.event_logger.add("Could not load resfiles due to client protection")
+                if self.event_logger:
+                    self.event_logger.add(
+                        "Could not load resfiles due to client protection"
+                    )
 
         self.shared_cache.setEnabled(True)
 
@@ -716,7 +746,10 @@ class CynoExporterWindow(QMainWindow):
 
     def on_tab_change(self, i):
         self.tab_widget.tabBar().setEnabled(False)
-        self.event_logger.add(f"Switching server to: {self.tab_widget.tabText(i)}")
+        if self.event_logger:
+            self.event_logger.add(
+                f"Switching server to: {self.tab_widget.tabText(i)}"
+            )
 
         if i == 1 and not self.tranquility.are_resfiles_loaded:
             self.tranquility.load_resfiles(self.tranquility, self.tranquility.client)
