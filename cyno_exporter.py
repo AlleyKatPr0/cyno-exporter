@@ -35,6 +35,8 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", 10))
+
 CONFIG_FILE = "./config.json"
 VERSION = "v1.5.0"
 WINDOW_TITLE = f"Cyno Exporter {VERSION}"
@@ -109,7 +111,7 @@ class ResFileIndex:
             self.binaries_url = f"{os.environ.get('CHINESE_CDN')}/binaries"
             self.resources_url = f"{os.environ.get('CHINESE_CDN')}/resources"
 
-    def fetch_client(self, client, timeout=10):
+    def fetch_client(self, client, timeout=REQUEST_TIMEOUT):
         base_url = self.chinese_url if self.chinese_client else self.binaries_url
         url = f"{base_url}/{client}"
         try:
@@ -155,11 +157,11 @@ class ResFileIndex:
             None,
         )
 
-    def fetch_resindexfile(self, build):
+    def fetch_resindexfile(self, build, timeout=REQUEST_TIMEOUT):
         base_url = self.chinese_url if self.chinese_client else self.binaries_url
         url = f"{base_url}/eveonline_{build}.txt"
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=timeout)
             self.event_logger.add(f"Requesting resindex: {url}")
             if response.status_code == 200:
                 resfileindex = next(
@@ -178,7 +180,7 @@ class ResFileIndex:
 
                 res_url = f"{self.binaries_url}/{resfileindex['resfile_hash']}"
                 try:
-                    res_response = requests.get(res_url)
+                    res_response = requests.get(res_url, timeout=timeout)
                     if res_response.status_code == 200:
                         with open(resfileindex_file_path, "wb") as f:
                             f.write(res_response.content)
@@ -300,11 +302,11 @@ class ResTree(QTreeWidget):
 
         return files
 
-    def download_file_itemless(self, resfile_hash, dest_path):
+    def download_file_itemless(self, resfile_hash, dest_path, timeout=REQUEST_TIMEOUT):
         resindex = ResFileIndex(chinese_client=self.chinese_client, event_logger=self.event_logger)
         try:
             url = f"{resindex.resources_url}/{resfile_hash}"
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=timeout)
             if response.status_code == 200:
                 with open(dest_path, "wb") as f:
                     f.write(response.content)
@@ -314,18 +316,18 @@ class ResTree(QTreeWidget):
         except (requests.exceptions.RequestException, OSError) as e:
             self.event_logger.add(f"Request failed: {url} ({e})")
 
-    def download_file(self, item, dest_path, retries=0):
+    def download_file(self, item, dest_path, retries=0, timeout=REQUEST_TIMEOUT):
         resindex = ResFileIndex(chinese_client=self.chinese_client, event_logger=self.event_logger)
         try:
             url = f"{resindex.resources_url}/{item.resfile_hash}"
-            response = requests.get(url)
+            response = requests.get(url, timeout=timeout)
             if response.status_code == 200:
                 with open(dest_path, "wb") as f:
                     f.write(response.content)
                 if os.path.getsize(dest_path) != item.size:
                     self.event_logger.add(f"resfile size doesn't match: {dest_path}, re-trying...")
                     if retries < 3:
-                        self.download_file(item, dest_path, retries + 1)
+                        self.download_file(item, dest_path, retries + 1, timeout=timeout)
             elif response.status_code == 404:
                 self.event_logger.add(f"404 error: {item.filename}")
                 return
