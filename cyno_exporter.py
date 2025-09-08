@@ -135,12 +135,12 @@ class ResFileIndex:
         resfile_list = []
         for line in sorted(filter(bool, content.lstrip().splitlines())):
             data = line.lower().split(",")
-            if len(data) < 4:
+            if len(data) < 4 or ":/" not in data[0]:
                 logger.warning(f"Skipping invalid line: {line}")
                 continue
             resfile_list.append(
                 {
-                    "res_path": data[0].split(":/")[1],
+                    "res_path": data[0].split(":/", 1)[1],
                     "resfile_hash": data[1],
                     "size": data[3],
                 }
