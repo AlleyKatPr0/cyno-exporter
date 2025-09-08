@@ -2,6 +2,7 @@ from datetime import datetime
 from pathlib import Path
 import sys, os, time, shutil, json, concurrent.futures, argparse
 import requests
+import logging
 from dotenv import load_dotenv
 from PyQt6.QtWidgets import (
     QApplication,
@@ -31,6 +32,8 @@ from utils.obj import Wavefront
 from utils.plugins import Revorb, Ww2Ogg, NvttExport
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 CONFIG_FILE = "./config.json"
 VERSION = "v1.5.0"
@@ -132,6 +135,9 @@ class ResFileIndex:
         resfile_list = []
         for line in sorted(filter(bool, content.lstrip().splitlines())):
             data = line.lower().split(",")
+            if len(data) < 4:
+                logger.warning(f"Skipping invalid line: {line}")
+                continue
             resfile_list.append(
                 {
                     "res_path": data[0].split(":/")[1],
