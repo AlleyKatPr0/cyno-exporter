@@ -105,8 +105,9 @@ class ResFileIndex:
 
     def fetch_client(self, client, timeout=10):
         base_url = self.chinese_url if self.chinese_client else self.binaries_url
+        url = f"{base_url}/{client}"
         try:
-            response = requests.get(f"{base_url}/{client}", timeout=timeout)
+            response = requests.get(url, timeout=timeout)
             if response.status_code == 200:
                 client = response.json()
                 self.event_logger.add(f"Requesting client: {response.url}")
@@ -114,10 +115,14 @@ class ResFileIndex:
                     return self._get_build(client)
                 else:
                     return None
+            else:
+                self.event_logger.add(
+                    f"Request failed: {url} (status: {response.status_code})"
+                )
         except requests.exceptions.RequestException as e:
-            self.event_logger.add(f"Connection failed to: {base_url}/{client} ({e})")
+            self.event_logger.add(f"Connection failed to: {url} ({e})")
         except ValueError as e:
-            self.event_logger.add(f"Invalid JSON received from: {base_url}/{client} ({e})")
+            self.event_logger.add(f"Invalid JSON received from: {url} ({e})")
 
     @staticmethod
     def resindexfile_object(content):
@@ -143,28 +148,44 @@ class ResFileIndex:
 
     def fetch_resindexfile(self, build):
         base_url = self.chinese_url if self.chinese_client else self.binaries_url
-        response = requests.get(f"{base_url}/eveonline_{build}.txt")
-        self.event_logger.add(f"Requesting resindex: {base_url}/eveonline_{build}.txt")
-        if response.status_code == 200:
-            resfileindex = next(
-                (
-                    resfile
-                    for resfile in ResFileIndex.resindexfile_object(response.text)
-                    if resfile["res_path"].startswith("resfileindex.txt")
-                ),
-                None,
-            )
+        url = f"{base_url}/eveonline_{build}.txt"
+        try:
+            response = requests.get(url)
+            self.event_logger.add(f"Requesting resindex: {url}")
+            if response.status_code == 200:
+                resfileindex = next(
+                    (
+                        resfile
+                        for resfile in ResFileIndex.resindexfile_object(response.text)
+                        if resfile["res_path"].startswith("resfileindex.txt")
+                    ),
+                    None,
+                )
 
-            resfileindex_file = f"{build}_resfileindex.txt"
+                resfileindex_file = f"{build}_resfileindex.txt"
 
-            os.makedirs("resindex", exist_ok=True)
-            resfileindex_file_path = os.path.join("resindex", resfileindex_file)
-            content = requests.get(f"{self.binaries_url}/{resfileindex['resfile_hash']}").content
+                os.makedirs("resindex", exist_ok=True)
+                resfileindex_file_path = os.path.join("resindex", resfileindex_file)
 
-            with open(resfileindex_file_path, "wb") as f:
-                f.write(content)
-
-            return resfileindex_file
+                res_url = f"{self.binaries_url}/{resfileindex['resfile_hash']}"
+                try:
+                    res_response = requests.get(res_url)
+                    if res_response.status_code == 200:
+                        with open(resfileindex_file_path, "wb") as f:
+                            f.write(res_response.content)
+                        return resfileindex_file
+                    else:
+                        self.event_logger.add(
+                            f"Request failed: {res_url} (status: {res_response.status_code})"
+                        )
+                except requests.exceptions.RequestException as e:
+                    self.event_logger.add(f"Request failed: {res_url} ({e})")
+            else:
+                self.event_logger.add(
+                    f"Request failed: {url} (status: {response.status_code})"
+                )
+        except requests.exceptions.RequestException as e:
+            self.event_logger.add(f"Request failed: {url} ({e})")
         return None
 
     def _is_protected(self, client):
