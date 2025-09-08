@@ -176,6 +176,10 @@ class ResFileIndex:
                     None,
                 )
 
+                if resfileindex is None:
+                    self.event_logger.add("resfileindex.txt not found in resindex")
+                    return None
+
                 resfileindex_file = f"{build}_resfileindex.txt"
 
                 os.makedirs("resindex", exist_ok=True)
