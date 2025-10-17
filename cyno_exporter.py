@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-import sys, os, time, shutil, json, concurrent.futures, argparse
+import sys, os, time, shutil, json, concurrent.futures, argparse, subprocess
 import requests
 import logging
 from dotenv import load_dotenv
@@ -777,7 +777,16 @@ class CynoExporterWindow(QMainWindow):
     def closeEvent(self, event):
         # i do this because if you exit while its still loading resfiles
         # the app will persist due to how the loading widget operates
-        os.system('taskkill /F /IM "Cyno Exporter.exe"')
+        if os.name == "nt":
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", "Cyno Exporter.exe"],
+                    check=False,
+                    capture_output=True,
+                    timeout=5,
+                )
+            except (subprocess.SubprocessError, OSError):
+                pass
 
     def on_tab_change(self, i):
         self.tab_widget.tabBar().setEnabled(False)
