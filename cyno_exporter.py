@@ -163,7 +163,7 @@ class ResFileIndex:
         base_url = self.chinese_url if self.chinese_client else self.binaries_url
         url = f"{base_url}/eveonline_{build}.txt"
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=30)
             if self.event_logger:
                 self.event_logger.add(f"Requesting resindex: {url}")
             if response.status_code == 200:
@@ -187,7 +187,7 @@ class ResFileIndex:
 
                 res_url = f"{self.binaries_url}/{resfileindex['resfile_hash']}"
                 try:
-                    res_response = requests.get(res_url)
+                    res_response = requests.get(res_url, timeout=30)
                     if res_response.status_code == 200:
                         with open(resfileindex_file_path, "wb") as f:
                             f.write(res_response.content)
@@ -333,7 +333,7 @@ class ResTree(QTreeWidget):
         resindex = ResFileIndex(chinese_client=self.chinese_client, event_logger=self.event_logger)
         try:
             url = f"{resindex.resources_url}/{item.resfile_hash}"
-            response = requests.get(url)
+            response = requests.get(url, timeout=30)
             if response.status_code == 200:
                 with open(dest_path, "wb") as f:
                     f.write(response.content)
