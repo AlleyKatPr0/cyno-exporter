@@ -367,7 +367,8 @@ class ResTree(QTreeWidget):
 
     def _save_as_ogg_command(self, out_file_path):
         stdout, wem = Ww2Ogg().run(out_file_path)
-        temp = os.path.join(os.path.dirname(out_file_path), f"{out_file_path.split('.')[0]}.temp")
+        base_path = os.path.splitext(out_file_path)[0]
+        temp = f"{base_path}.temp"
 
         if stdout is not None:
             if self.event_logger:
@@ -377,10 +378,7 @@ class ResTree(QTreeWidget):
         os.remove(out_file_path)
         Revorb().run(wem, temp)
         os.remove(wem)
-        os.rename(
-            temp,
-            os.path.join(os.path.dirname(out_file_path), f"{out_file_path.split('.')[0]}.ogg"),
-        )
+        os.rename(temp, f"{base_path}.ogg")
 
     def _save_file_command(self, item, multiple=False, multiple_destination=None):
         if not multiple:
