@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-import sys, os, time, shutil, json, concurrent.futures, argparse
+import sys, os, time, shutil, json, concurrent.futures, argparse, subprocess
 import requests
 import logging
 from dotenv import load_dotenv
@@ -163,7 +163,7 @@ class ResFileIndex:
         base_url = self.chinese_url if self.chinese_client else self.binaries_url
         url = f"{base_url}/eveonline_{build}.txt"
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=30)
             if self.event_logger:
                 self.event_logger.add(f"Requesting resindex: {url}")
             if response.status_code == 200:
@@ -187,7 +187,7 @@ class ResFileIndex:
 
                 res_url = f"{self.binaries_url}/{resfileindex['resfile_hash']}"
                 try:
-                    res_response = requests.get(res_url)
+                    res_response = requests.get(res_url, timeout=30)
                     if res_response.status_code == 200:
                         with open(resfileindex_file_path, "wb") as f:
                             f.write(res_response.content)
@@ -333,7 +333,7 @@ class ResTree(QTreeWidget):
         resindex = ResFileIndex(chinese_client=self.chinese_client, event_logger=self.event_logger)
         try:
             url = f"{resindex.resources_url}/{item.resfile_hash}"
-            response = requests.get(url)
+            response = requests.get(url, timeout=30)
             if response.status_code == 200:
                 with open(dest_path, "wb") as f:
                     f.write(response.content)
@@ -367,7 +367,8 @@ class ResTree(QTreeWidget):
 
     def _save_as_ogg_command(self, out_file_path):
         stdout, wem = Ww2Ogg().run(out_file_path)
-        temp = os.path.join(os.path.dirname(out_file_path), f"{out_file_path.split('.')[0]}.temp")
+        filename_without_ext = os.path.splitext(out_file_path)[0]
+        temp = f"{filename_without_ext}.temp"
 
         if stdout is not None:
             if self.event_logger:
@@ -377,10 +378,7 @@ class ResTree(QTreeWidget):
         os.remove(out_file_path)
         Revorb().run(wem, temp)
         os.remove(wem)
-        os.rename(
-            temp,
-            os.path.join(os.path.dirname(out_file_path), f"{out_file_path.split('.')[0]}.ogg"),
-        )
+        os.rename(temp, f"{filename_without_ext}.ogg")
 
     def _save_file_command(self, item, multiple=False, multiple_destination=None):
         if not multiple:
@@ -777,7 +775,16 @@ class CynoExporterWindow(QMainWindow):
     def closeEvent(self, event):
         # i do this because if you exit while its still loading resfiles
         # the app will persist due to how the loading widget operates
-        os.system('taskkill /F /IM "Cyno Exporter.exe"')
+        if os.name == "nt":
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", "Cyno Exporter.exe"],
+                    check=False,
+                    capture_output=True,
+                    timeout=5,
+                )
+            except (subprocess.SubprocessError, OSError):
+                pass
 
     def on_tab_change(self, i):
         self.tab_widget.tabBar().setEnabled(False)
