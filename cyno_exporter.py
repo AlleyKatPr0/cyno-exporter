@@ -497,6 +497,21 @@ class ResTree(QTreeWidget):
             build = resindex.fetch_client(client)
             if build is not None:
                 resfileindex_file = resindex.fetch_resindexfile(build=build)
+                if not resfileindex_file:
+                    message = (
+                        f"Could not download the remote resfile index for build {build}. "
+                        "Please try again later."
+                    )
+                    logger.warning(
+                        "Failed to download remote resfile index for build %s", build
+                    )
+                    if self.event_logger:
+                        self.event_logger.add(message)
+                    QMessageBox.warning(self, "Download error", message)
+                    root.setHidden(False)
+                    self.shared_cache.setEnabled(True)
+                    return
+
                 resfileindex_path = os.path.join("resindex", resfileindex_file)
 
                 bnk_path = f"./resindex/{build}_soundbanksinfo.json"
